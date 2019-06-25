@@ -172,8 +172,7 @@ def logout(driver):
 	driver.find_element_by_css_selector('li.dropdown:nth-child(3)').click()
 	time.sleep(2)
 	# Click logout
-	#driver.find_element_by_css_selector('.action-bar-dropdown-body > li:nth-child(11) > a:nth-child(1)').click()
-	driver.find_element_by_class_name('action-bar-dropdown-logout-link').click()
+	driver.find_element_by_css_selector('.action-bar-dropdown-body > li:nth-child(11) > a:nth-child(1)').click()
 	time.sleep(2)
 
 def switch_committees(driver, committee):
@@ -262,7 +261,7 @@ def upload_xls(driver, filepath, mapping_values):
 def WrangleData(today, name):
 	# Move to downloads folder if not already there
 	if (os.getcwd()[-9:] != 'Downloads'):
-		os.chdir("../../Downloads/")
+		os.chdir("../Downloads/")
 
 	# Get the name of the export file
 	export_file = [x for x in os.listdir() if x.startswith('StandardText' + name + today) and x.endswith(".zip")][0]
