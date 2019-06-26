@@ -177,24 +177,21 @@ def upload(driver, filepath):
 
 	time.sleep(10000)
 
-def download_zip_to_team(CIVIS_API_KEY, date, driver):
+def download_zip_to_team(CIVIS_API_KEY, date):
+	# Get the SQL query from a txt file
 	script = ""
 	with open('ziptoteam_query.txt', 'r') as myfile:
   		script = myfile.read()
 
+  	# Setup the civis client
 	client = civis.APIClient(api_key=CIVIS_API_KEY)
+	# Run the civis query
 	fut = civis.io.civis_to_csv(filename="zip_to_team_" + str(date) + ".csv", sql=script, database="Warren for MA", job_name="zip_to_team_" + str(date), client=client)
+	# Wait for query results
 	results = fut.result()
-	filename = results['output'][0]['output_name']
-	path = results['output'][0]['path']
-
-	driver.get(path)
-	time.sleep(30)
-
-	os.chdir("../Downloads/")
-	file_path = str(os.getcwd()) + "/" + str(filename)
-
-	return file_path
+	filename = results['output'][0]['output_name'] # Get CSV filename from the results
+	filepath = str(os.getcwd()) + "/" + str(filename) # Get the complete filepath to the CSV (stored in current directory by default)
+	return filepath
 
 def main():
 	# Get login credentials from secrets file
@@ -211,6 +208,8 @@ def main():
 	action_id_pw = secrets['van']['password']
 	pin = secrets['van']['pin']
 
+	committee_name = "Elizabeth Warren for President 2020"
+
 	# Get todays date
 	now = datetime.datetime.now()
 	month = str(now.month) 
@@ -218,7 +217,9 @@ def main():
 		month = '0' + month
 	date = month + str(now.day) + str(now.year)
 
-	committee_name = "Elizabeth Warren for President 2020"
+	# Run civis query and get the filepath to the CSV
+	print("Running civis query.")
+	path = download_zip_to_team(CIVIS_API_KEY, date)
 
 	# Setup Selenium driver
 	options = webdriver.ChromeOptions()
@@ -227,9 +228,7 @@ def main():
 
 	my_driver = webdriver.Chrome(options=options)
 
-	print("Running civis query.")
-	path = download_zip_to_team(CIVIS_API_KEY, date, my_driver)
-	print("Logging in.")
+	print("Logging in to VAN.")
 	login(my_driver, action_id_email, action_id_pw, pin, committee_name)
 	print("Uploading csv.")
 	upload(my_driver, path)
