@@ -150,10 +150,21 @@ def build_and_export_list(driver, today, name):
 
 	# Click to the My Export Files link
 	driver.find_element_by_link_text('My Export Files').click()
-	time.sleep(30)
-	# Click the most recent export Files link to export
-	driver.find_elements_by_link_text('Download File')[0].click()
-	time.sleep(10)
+	time.sleep(5) # Wait for the file to be prepared
+
+	while(True):
+		try: # Click the most recent export Files link to export
+			driver.find_element_by_xpath('//*[@id="ctl00_ContentPlaceHolderVANPage_gvList"]/tbody/tr[1]/td[6]').click()
+		except: # If the export job is not finished wait 5 seconds and refresh the page
+			print("File not prepared. Refrehsing.")
+			time.sleep(5)
+			driver.refresh()
+		else: # leave the while loop when the job is finished and the download link is clicked 
+			time.sleep(5)
+			break
+			
+		#driver.find_elements_by_link_text('Download File')[0].click()
+	#time.sleep(10)
 
 def select_committee(driver, committee):
 	# Open committee selector
@@ -168,6 +179,9 @@ def select_committee(driver, committee):
 	time.sleep(5)
 
 def logout(driver):
+	# Make sure we are in the My Campaign homepage
+	driver.find_element_by_link_text('My Campaign').click()
+	time.sleep(2)
 	# Click the account dropdown
 	driver.find_element_by_css_selector('li.dropdown:nth-child(3)').click()
 	time.sleep(2)
@@ -187,31 +201,21 @@ def switch_committees(driver, committee):
 	select_committee(driver, committee)
 
 def upload_xls(driver, filepath, mapping_values):
-	# Make sure we are in My Campaign
-	driver.find_element_by_link_text('My Campaign').click()
+	# Go to upload select data type page
+	driver.get('https://www.votebuilder.com/UploadDataSelectType.aspx')
 	time.sleep(2)
-
-	# Scroll into view and click the run bulk upload dropdown
-	driver.execute_script("return arguments[0].scrollIntoView();", driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_TableCellMenuRow1LinkGridView'))
-	time.sleep(2)
-	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ctl60_HyperLinkMenuBulkUpload').click()
-	time.sleep(2)
-
-	# Click upload a new file
-	driver.find_element_by_css_selector('#ctl00_ContentPlaceHolderVANPage_AccordionBulkUpload > div:nth-child(3) > div:nth-child(1) > table:nth-child(1) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > a:nth-child(1)').click()
-	time.sleep(3)
 	# Click next
 	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonUploadSubmit').click()
-	time.sleep(3)
-	# Scroll down to the select a file button
-	driver.execute_script("return arguments[0].scrollIntoView();", driver.find_element_by_css_selector('label.btn'))
 	time.sleep(2)
 	# Submit the file
 	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_InputFileDefault').send_keys(filepath)
 	time.sleep(2)
+	# Scroll down to the upload button
+	driver.execute_script("return arguments[0].scrollIntoView();", driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonSubmitDefault'))
+	time.sleep(2)
 	# Click upload
 	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonSubmitDefault').click()
-	time.sleep(30)
+	time.sleep(60) # Wait for the file to upload
 
 	# A view may appear that tells you certain VAN IDs in excel do not match those in the database
 	# If this appears, we click the next button. Otherwise print that all IDs match
@@ -325,6 +329,7 @@ def main():
 	print("Getting data from VAN.")
 	build_and_export_list(my_driver, date, political[1])
 	print()
+	time.sleep(20) # wait for files to finish downloading
 
 	# Wrangle the data
 	print("Wrangling data.")
