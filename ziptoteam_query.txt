@@ -1,0 +1,76 @@
+select myc_van_id
+        ,best_teams.region_name
+        ,best_teams.fo_name
+        ,best_teams.team_name
+        ,turf_number        
+from (   
+        select turf.myc_van_id
+            ,turf.zip
+        from (
+                select mcp.myc_van_id
+                        ,cte_a.region_name as regionname_activity
+                        ,cte_a.fo_name as foname_activity
+                        ,cte_a.team_name as teamname_activity 
+                        ,cte_e.region_name
+                        ,cte_e.fo_name
+                        ,cte_e.team_name
+                        ,cte_a.state_code
+                        ,mcp_a.zip as zip
+                        ,voting_address
+                        ,van_precinct_id
+                from phoenix_demswarren20_vansync.person_records_myc mcp
+                left join phoenix_demswarren20_vansync_derived.addresses_myc mcp_a on mcp_a.contacts_address_id = mcp.voting_address_id
+                left join (select * from phoenix_demswarren20_vansync.turf where state_code = 'IA') cte_e using(van_precinct_id)
+                left join (select * from phoenix_demswarren20_vansync.activity_regions where state_code = 'IA') cte_a on cte_a.myc_van_id = mcp.myc_van_id
+                where mcp.state_code = 'IA'
+                )turf
+        where foname_activity is null
+        and regionname_activity is null
+        and fo_name is null
+        and region_name is null
+        and zip is not null
+        and zip in (select distinct voting_zip from phoenix_analytics.person where voting_zip is not null and van_precinct_id is not null and state_code = 'IA')
+        and (upper(voting_address) not like '%PO BOX%' or voting_address is null)
+        ) need_team_ia
+
+left join (
+
+        select voting_zip
+                ,region_name
+                ,fo_name
+                ,team_name
+        from (   
+                select p.voting_zip
+                      ,te.region_name
+                      ,te.fo_name
+                      ,te.team_name
+                      ,count(person_id) as total_people
+                      ,row_number () over (partition by p.voting_zip order by count(person_id) desc) as rank
+                from phoenix_analytics.person p
+                left join phoenix_demswarren20_vansync.turf te on te.van_precinct_id = p.van_precinct_id
+                where te.state_code = 'IA'
+                and p.voting_zip is not null
+                and is_deceased = false
+                and reg_voter_flag = true 
+         		and p.state_code = 'IA'
+                group by 1,2,3,4
+                
+                )ranked_teams
+        where ranked_teams.rank = 1
+        order by 1
+        ) best_teams on need_team_ia.zip = best_teams.voting_zip
+
+left join (
+        
+        select team_name
+              ,row_number() over(order by team_name) as turf_number
+        from phoenix_demswarren20_vansync.turf te
+        where state_code = 'IA'
+        group by 1
+
+                )turf_number using (team_name)
+                
+        where best_teams.region_name is not null
+        and best_teams.fo_name is not null
+        and best_teams.team_name is not null
+        and turf_number between 0 and 60;
