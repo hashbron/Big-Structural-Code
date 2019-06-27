@@ -9,9 +9,6 @@ from selenium.webdriver.common.action_chains import ActionChains
 import zipfile
 import json
 import os
-import glob
-import requests
-import pyautogui
 
 ENTER = "u'\ue007'"
 
@@ -136,7 +133,7 @@ def build_and_export_list(driver, today, name):
 	driver.find_element_by_class_name("select2-choice").click()
 	driver.find_element_by_class_name('select2-input').send_keys("Work Email")
 	driver.find_element_by_class_name('select2-input').send_keys(Keys.RETURN);
-	time.sleep(2)
+	#time.sleep(2)
 	#Name Export File
 	driver.find_element_by_class_name("form-control").click()
 	driver.find_element_by_css_selector("input.form-control").send_keys(name + today)
@@ -150,21 +147,15 @@ def build_and_export_list(driver, today, name):
 
 	# Click to the My Export Files link
 	driver.find_element_by_link_text('My Export Files').click()
-	time.sleep(5) # Wait for the file to be prepared
+	time.sleep(5) 
 
-	while(True):
-		try: # Click the most recent export Files link to export
-			driver.find_element_by_xpath('//*[@id="ctl00_ContentPlaceHolderVANPage_gvList"]/tbody/tr[1]/td[6]').click()
-		except: # If the export job is not finished wait 5 seconds and refresh the page
-			print("File not prepared. Refrehsing.")
-			time.sleep(5)
-			driver.refresh()
-		else: # leave the while loop when the job is finished and the download link is clicked 
-			time.sleep(5)
-			break
-			
-		#driver.find_elements_by_link_text('Download File')[0].click()
-	#time.sleep(10)
+	# Wait for the file to be prepared
+	while(driver.find_element_by_xpath('//*[@id="ctl00_ContentPlaceHolderVANPage_gvList"]/tbody/tr[1]/td[6]').text != "Download File"):
+		print("File not prepared. Refrehsing.")
+		time.sleep(5)
+		driver.refresh()
+	# Click to download the file
+	driver.find_element_by_xpath('//*[@id="ctl00_ContentPlaceHolderVANPage_gvList"]/tbody/tr[1]/td[6]').click()
 
 def select_committee(driver, committee):
 	# Open committee selector
