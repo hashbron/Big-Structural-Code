@@ -6,11 +6,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
-import zipfile
 import json
 import os
-import glob
-import requests
 import civis
 
 def login(driver, action_id_email, action_id_pw, pin, committee):
