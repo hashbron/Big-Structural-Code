@@ -286,10 +286,12 @@ def main():
 
 	# Get todays date
 	now = datetime.datetime.now()
-	month = str(now.month) 
+	month, day = str(now.month), str(now.day) 
 	if len(month) != 2:
 		month = '0' + month
-	date = month + str(now.day) + str(now.year)
+	if len(day) != 2:
+		day = '0' + day
+	date = month + day + str(now.year)
 
 	# Setup Selenium driver
 	options = webdriver.ChromeOptions()

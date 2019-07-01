@@ -166,13 +166,11 @@ def upload(driver, filepath):
 	driver.find_element_by_id('ctl01_ContentPlaceHolderVANPage_Next3').click()
 	time.sleep(5)
 
-	#driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonFinishUpload').click()
+	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonFinishUpload').click()
 	time.sleep(5)
 
-	#driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_FinishUploadModal__submitButton').click()
+	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_FinishUploadModal__submitButton').click()
 	time.sleep(5)
-
-	time.sleep(10000)
 
 def download_zip_to_team(CIVIS_API_KEY, date):
 	# Get the SQL query from a txt file
@@ -209,10 +207,12 @@ def main():
 
 	# Get todays date
 	now = datetime.datetime.now()
-	month = str(now.month) 
+	month, day = str(now.month), str(now.day) 
 	if len(month) != 2:
 		month = '0' + month
-	date = month + str(now.day) + str(now.year)
+	if len(day) != 2:
+		day = '0' + day
+	date = month + day + str(now.year)
 
 	# Run civis query and get the filepath to the CSV
 	print("Running civis query.")
