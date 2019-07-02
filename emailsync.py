@@ -102,7 +102,7 @@ def build_and_export_list(driver, today, name):
 	# Click to export
 	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_HyperLinkImageExport').click()
 	time.sleep(5)
-	# Choose relationships as the export format
+	# Choose the standard text export format
 	driver.find_element_by_class_name("select2-choice").click()
 	driver.find_element_by_class_name('select2-input').send_keys("Standard Text")
 	driver.find_element_by_class_name('select2-input').send_keys(Keys.RETURN);
