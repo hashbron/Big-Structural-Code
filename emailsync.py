@@ -142,7 +142,6 @@ def build_and_export_list(driver, today, name):
 	time.sleep(1)
 	# Click the export button
 	driver.find_element_by_css_selector('input.btn:nth-child(2)').click()
-	input.btn:nth-child(2)
 	time.sleep(2)
 
 	# Click to the My Export Files link
