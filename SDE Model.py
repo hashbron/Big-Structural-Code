@@ -1,7 +1,59 @@
 
 # coding: utf-8
 
-# In[405]:
+# ## Expected Turnout
+# 
+# To predict turnout we have a number of different models that we can use. In the cells below you can select a turnout model and tune the parameter for statewide expected turnout. 
+# 
+# ---
+# Our different models are as follows:
+# 
+# 1. `exp_16` - models precinct level turnout with the same turnout numbers as 2016
+# 2. `exp_08` - models precinct level turnout with the same turnout numbers as 2008
+# 3. `exp_avg` - models precinct level turnout with the average of the precinct level turnout numbers from 2016 and 2008
+# 4. `exp_percent_16` - models precinct level turnout using the percent of statewide vote per precicnt in 2016 and a parameter for statewide turnout (`expected_statewide_turnout`) that can be adjusted.
+# 5. `exp_percent_08` - models precinct level turnout using the percent of statewide vote per precicnt in 2008 and a parameter for statewide turnout (`expected_statewide_turnout`) that can be adjusted.
+# 6. `exp_percent_avg` - models precinct level turnout using the average of the percents of statewide vote per precicnt in 2016 and 2008, and a parameter for statewide turnout (`expected_statewide_turnout`) that can be adjusted.7.
+# 7. `overall_avg` - models precinct level turnout using the average of `exp_16`, `exp_08`, `exp_percent_16`, and `exp_percent_08`.
+# 
+# By default `expected_statewide_turnout` is set to 300,000.
+# 
+# 
+# 
+
+# In[456]:
+
+
+# Set the Turnout Model you want to use
+turnout_model = overall_avg
+# Set the expected statewide turnout if your model depends on it
+expected_statewide_turnout = 300000
+
+
+# ## Viability
+# 
+# To predict viablity for EW we first predict how many caucus goers we expect to turnout for EW and then compare this number against the viability threshold calculated from our expected turnout.
+# 
+# To predict viability for other candidtes we assume if they have at least 70% of the viability threshold in a given precinct then that candidate will be viable.
+# 
+# ---
+# We predict the number of caucus goers for EW by weighting the number of 'Committed Warren' and 'Lean Warren' IDs we have. We than assume a flake rate for the weighted sum. The variables `committed_warren_weight` and `lean_warren_weight` can be set to adjust the weights of this prediction. The variable `flake_rate` can be set to adjust the flake rate (Note, the flake rate is set as the percent of people who do show up).
+# 
+# By default, `committed_warren_weight` is set to `0.9`, `lean_warren_weight` is set to `0.5`, and `flake_rate` is set to 0.85.
+# 
+# For other candidates, the 70% estimation can be changed by adjusting the `viability_percent` variable.
+
+# In[457]:
+
+
+# Set the viablity desired weights here
+committed_warren_weight = 0.9
+lean_warren_weight = 0.6
+flake_rate = 0.85
+viability_percent = 0.7
+
+
+# In[458]:
 
 
 import numpy as np
@@ -14,7 +66,7 @@ import datetime
 lee = [948327, 947318, 948329] 
 
 
-# In[406]:
+# In[459]:
 
 
 # Get login credentials from secrets file
@@ -42,8 +94,12 @@ fc = fc.pivot(index='van_precinct_id', columns='survey_response_name', values='c
 cols = first_choice.columns
 fc[cols] = fc[cols].astype(np.float32)
 
+# Import caucus history data 
+sql = "SELECT van_precinct_id, SUM(case when caucus_attendee_2016 = 1 then 1 else 0 end) count16, SUM(case when caucus_attendee_2008 = 1 then 1 else 0 end) count08 FROM phoenix_caucus_history_ia.person_caucus_attendance ca LEFT JOIN phoenix_ia.person p ON ca.person_id = p.person_id GROUP BY van_precinct_id"
+caucus_history = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
 
-# In[407]:
+
+# In[460]:
 
 
 # Rename columns
@@ -56,27 +112,7 @@ precinct_data.rename(index=str, columns={"congressional_district": "Congressiona
                                     "state_delegate_equivalence_sde": "State Delegate Equivalence (SDE)"}, inplace=True)
 
 
-# ## Expected Turnout
-# 
-# To predict turnout we have a number of different models that we can use. In the cells below you can select a turnout model and tune the parameter for statewide expected turnout. 
-# 
-# ---
-# Our different models are as follows:
-# 
-# 1. `exp_16` - models precinct level turnout with the same turnout numbers as 2016
-# 2. `exp_08` - models precinct level turnout with the same turnout numbers as 2008
-# 3. `exp_avg` - models precinct level turnout with the average of the precinct level turnout numbers from 2016 and 2008
-# 4. `exp_percent_16` - models precinct level turnout using the percent of statewide vote per precicnt in 2016 and a parameter for statewide turnout (`expected_statewide_turnout`) that can be adjusted.
-# 5. `exp_percent_08` - models precinct level turnout using the percent of statewide vote per precicnt in 2008 and a parameter for statewide turnout (`expected_statewide_turnout`) that can be adjusted.
-# 6. `exp_percent_avg` - models precinct level turnout using the average of the percents of statewide vote per precicnt in 2016 and 2008, and a parameter for statewide turnout (`expected_statewide_turnout`) that can be adjusted.7.
-# 7. `overall_avg` - models precinct level turnout using the average of `exp_16`, `exp_08`, `exp_percent_16`, and `exp_percent_08`.
-# 
-# By default `expected_statewide_turnout` is set to 300,000.
-# 
-# 
-# 
-
-# In[408]:
+# In[461]:
 
 
 def exp_16 (row):
@@ -101,30 +137,27 @@ def overall_avg (row):
     return (exp_16(row) + exp_08(row) + exp_percent_16(row) + exp_percent_08(row)) / 4
 
 
-# In[409]:
+# In[462]:
 
 
-caucus_history = pd.read_csv('caucus_history.csv', header = 0, dtype=np.float32)
+# Add historical caucus data to df
 df = pd.merge(precinct_data, caucus_history, left_on='Precinct ID', right_on='van_precinct_id')
 statewide_turnout_16 = caucus_history['count16'].sum()
 statewide_turnout_08 = caucus_history['count08'].sum()
 df.set_index('Precinct ID', inplace=True)
 
 
-# In[410]:
+# In[463]:
 
 
-# Set the Turnout Model you want to use
-turnout_model = overall_avg
-# Set the expected statewide turnout if your model depends on it
-expected_statewide_turnout = 300000
-
+# Add turnout to df
 df['Expected Turnout'] = df.apply(turnout_model, axis=1)
+# Remove historical caucus data after calculations
 columns = ['van_precinct_id', 'count16', 'count08']
 df.drop(columns, inplace=True, axis=1)
 
 
-# In[411]:
+# In[464]:
 
 
 def viability_threshold(num_del):
@@ -140,7 +173,7 @@ def viability_threshold(num_del):
         return 0.15
 
 
-# In[413]:
+# In[465]:
 
 
 # Calculate SDE per person based on turnout model
@@ -149,7 +182,7 @@ df['SDE per Person'] = df.apply(lambda row : row['State Delegate Equivalence (SD
 df['Viability Threshold'] = df.apply(lambda row : math.ceil(row['Expected Turnout'] * viability_threshold(row['Delegates to County Conv'])), axis=1).astype(np.float32)
 
 
-# In[414]:
+# In[466]:
 
 
 # Add Committed Warren and Lean Warren from fc to new merged df
@@ -160,30 +193,7 @@ fc = pd.merge(fc, df[['Viability Threshold']], how='left', left_index=True, righ
 fc.fillna(0, inplace=True)
 
 
-# ## Viability
-# 
-# To predict viablity for EW we first predict how many caucus goers we expect to turnout for EW and then compare this number against the viability threshold calculated from our expected turnout.
-# 
-# To predict viability for other candidtes we assume if they have at least 70% of the viability threshold in a given precinct then that candidate will be viable.
-# 
-# ---
-# We predict the number of caucus goers for EW by weighting the number of 'Committed Warren' and 'Lean Warren' IDs we have. We than assume a flake rate for the weighted sum. The variables `committed_warren_weight` and `lean_warren_weight` can be set to adjust the weights of this prediction. The variable `flake_rate` can be set to adjust the flake rate (Note, the flake rate is set as the percent of people who do show up).
-# 
-# By default, `committed_warren_weight` is set to `0.9`, `lean_warren_weight` is set to `0.5`, and `flake_rate` is set to 0.85.
-# 
-# For other candidates, the 70% estimation can be changed by adjusting the `viability_percent` variable.
-
-# In[415]:
-
-
-# Set the desired weights here
-committed_warren_weight = 0.9
-lean_warren_weight = 0.6
-flake_rate = 0.85
-viability_percent = 0.7
-
-
-# In[416]:
+# In[467]:
 
 
 # Calculate whether or not EW is viable for each precinct
@@ -191,7 +201,7 @@ df['Expected Warren Turnout'] = df.apply(lambda row: flake_rate * (row['Committe
 df['Warren Viable'] = df.apply(lambda row: row['Viability Threshold'] <= row['Expected Warren Turnout'] and row['Expected Warren Turnout'] != 0, axis=1)
 
 
-# In[418]:
+# In[468]:
 
 
 # Calculate the number of other viable candidates in each precinct
@@ -246,7 +256,7 @@ df['Total ID Turnout'] = df.apply(lambda row: row['Partial ID Turnout'] + row['E
 df.fillna(0, inplace=True)
 
 
-# In[419]:
+# In[469]:
 
 
 # Calculate expected number of warren delegates based on exprected warren turnout
@@ -271,7 +281,7 @@ def expected_dels (row):
 df['Expected Warren Delegates'] = df.apply(expected_dels, axis=1)    
 
 
-# In[421]:
+# In[470]:
 
 
 def distance_to_next_delegate (row):
@@ -320,7 +330,7 @@ def distance_to_next_delegate (row):
 df['Distance to Next Delegate'] = df.apply(distance_to_next_delegate, axis=1)      
 
 
-# In[422]:
+# In[471]:
 
 
 # Drop columns only used for internal calculations
@@ -329,7 +339,7 @@ df.drop(['Other Candidates Viable Turnout', 'Partial ID Turnout'], inplace=True,
 df.sort_values(['Distance to Next Delegate', 'State Delegate Equivalence (SDE)'], inplace=True)
 
 
-# In[423]:
+# In[472]:
 
 
 df
