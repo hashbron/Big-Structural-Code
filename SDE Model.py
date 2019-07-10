@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[164]:
+# In[405]:
 
 
 import numpy as np
@@ -14,53 +14,46 @@ import datetime
 lee = [948327, 947318, 948329] 
 
 
-# In[165]:
+# In[406]:
 
-
-# Import precinct data CSV 
-precinct_data = pd.read_csv('precinct.csv', header = 0, dtype=np.float32)
-columns = ['SDE Rank', 'SDE/Person', 'Clinton \'16', 'Hubbell \'18', 'Reporting Multiplier', '16+\'18 Votes']
-precinct_data.drop(columns, inplace=True, axis=1)
 
 # Get login credentials from secrets file
 secrets = json.load(open('secrets.json'))
 CIVIS_API_KEY = secrets['civis']['api_key']
 
-# Get today's date
-now = datetime.datetime.now()
-month, day = str(now.month), str(now.day) 
-if len(month) != 2:
-    month = '0' + month
-if len(day) != 2:
-    day = '0' + day
-date = month + day + str(now.year)
+# Setup API client
+client = civis.APIClient(api_key=CIVIS_API_KEY)
+
+# Import precinct data
+to_drop = ['clinton_16', 'hubbell_18', 'clinton_hubbell_sum', 'reporting_multiplier','percent_of_statewide_vote']
+sql = "SELECT * FROM analytics_ia.precinct_data"
+precinct_data = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
+precinct_data.drop(to_drop, inplace=True, axis=1)
+
+# Import first choice ID data
+sql = "select van_precinct_id, survey_response_name, count(*) from analytics_ia.vansync_responses where mrr_all = 1 and survey_question_name = '1st Choice Caucus' group by 1,2"    
+fc = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
+# Set dtype for columns to float
+cols = fc.columns.drop('survey_response_name')
+fc[cols] = fc[cols].astype(np.float32)
+# Pivot on van_precinct_id
+fc = fc.pivot(index='van_precinct_id', columns='survey_response_name', values='count')
+# Reset dtype for columns to float
+cols = first_choice.columns
+fc[cols] = fc[cols].astype(np.float32)
 
 
-# In[166]:
+# In[407]:
 
 
-def run_civis_query(CIVIS_API_KEY, date, script, query_name):
-    # Setup the civis client
-    client = civis.APIClient(api_key=CIVIS_API_KEY)
-    # Run the civis query
-    name = query_name + str(date) 
-    fut = civis.io.civis_to_csv(filename=name + ".csv", sql=script, database="Warren for MA", job_name=name, client=client)
-    # Wait for query results
-    results = fut.result()
-    filename = results['output'][0]['output_name'] # Get CSV filename from the results
-    return filename
-
-
-# In[167]:
-
-
-# Get the SQL query for first choice from a txt file
-script = ""
-with open('civis_first_choice_query.txt', 'r') as myfile:
-    script = myfile.read()
-    
-# Run Civis query for first choice 
-first_choice = run_civis_query(CIVIS_API_KEY, date, script, 'First_Choice_')
+# Rename columns
+precinct_data.rename(index=str, columns={"congressional_district": "Congressional District", 
+                                    "precinct_id": "Precinct ID", 
+                                    "county": "County",
+                                    "precinct_code": "Precinct Code",
+                                    "sos_precinct_name": "Sec. State Precinct Name",
+                                    "delegates_to_county_conv": "Delegates to County Conv",
+                                    "state_delegate_equivalence_sde": "State Delegate Equivalence (SDE)"}, inplace=True)
 
 
 # ## Expected Turnout
@@ -75,14 +68,15 @@ first_choice = run_civis_query(CIVIS_API_KEY, date, script, 'First_Choice_')
 # 3. `exp_avg` - models precinct level turnout with the average of the precinct level turnout numbers from 2016 and 2008
 # 4. `exp_percent_16` - models precinct level turnout using the percent of statewide vote per precicnt in 2016 and a parameter for statewide turnout (`expected_statewide_turnout`) that can be adjusted.
 # 5. `exp_percent_08` - models precinct level turnout using the percent of statewide vote per precicnt in 2008 and a parameter for statewide turnout (`expected_statewide_turnout`) that can be adjusted.
-# 6. `exp_percent_avg` - models precinct level turnout using the average of the percents of statewide vote per precicnt in 2016 and 2008, and a parameter for statewide turnout (`expected_statewide_turnout`) that can be adjusted.
+# 6. `exp_percent_avg` - models precinct level turnout using the average of the percents of statewide vote per precicnt in 2016 and 2008, and a parameter for statewide turnout (`expected_statewide_turnout`) that can be adjusted.7.
+# 7. `overall_avg` - models precinct level turnout using the average of `exp_16`, `exp_08`, `exp_percent_16`, and `exp_percent_08`.
 # 
-# By default `expected_statewide_turnout` is set to 30,000.
+# By default `expected_statewide_turnout` is set to 300,000.
 # 
 # 
 # 
 
-# In[168]:
+# In[408]:
 
 
 def exp_16 (row):
@@ -103,10 +97,11 @@ def exp_percent_08 (row):
 def exp_percent_avg (row):
     return (exp_percent_16(row) + exp_percent_08(row)) / 2
 
-#segments from HQ on voter likelihood
+def overall_avg (row):
+    return (exp_16(row) + exp_08(row) + exp_percent_16(row) + exp_percent_08(row)) / 4
 
 
-# In[169]:
+# In[409]:
 
 
 caucus_history = pd.read_csv('caucus_history.csv', header = 0, dtype=np.float32)
@@ -116,11 +111,11 @@ statewide_turnout_08 = caucus_history['count08'].sum()
 df.set_index('Precinct ID', inplace=True)
 
 
-# In[170]:
+# In[410]:
 
 
 # Set the Turnout Model you want to use
-turnout_model = exp_avg
+turnout_model = overall_avg
 # Set the expected statewide turnout if your model depends on it
 expected_statewide_turnout = 300000
 
@@ -129,7 +124,7 @@ columns = ['van_precinct_id', 'count16', 'count08']
 df.drop(columns, inplace=True, axis=1)
 
 
-# In[171]:
+# In[411]:
 
 
 def viability_threshold(num_del):
@@ -145,7 +140,7 @@ def viability_threshold(num_del):
         return 0.15
 
 
-# In[172]:
+# In[413]:
 
 
 # Calculate SDE per person based on turnout model
@@ -154,30 +149,15 @@ df['SDE per Person'] = df.apply(lambda row : row['State Delegate Equivalence (SD
 df['Viability Threshold'] = df.apply(lambda row : math.ceil(row['Expected Turnout'] * viability_threshold(row['Delegates to County Conv'])), axis=1).astype(np.float32)
 
 
-# In[173]:
+# In[414]:
 
 
-# Import first choice data
-fc = pd.read_csv(first_choice, header = 0) 
-# Set dtype for columns to float
-cols = fc.columns.drop('survey_response_name')
-fc[cols] = fc[cols].astype(np.float32)
-# Pivot on van_precinct_id
-fc = fc.pivot(index='van_precinct_id', columns='survey_response_name', values='count')
-# Set dtype for columns to float
-cols = fc.columns
-fc[cols] = fc[cols].astype(np.float32)
-
-
-# In[174]:
-
-
-# Add Committed Warren and Lean Warren to df
+# Add Committed Warren and Lean Warren from fc to new merged df
 df = pd.merge(df, fc[['Committed Warren']], how="left", left_index=True, right_index=True)
 df = pd.merge(df, fc[['Lean Warren']], how="left", left_index=True, right_index=True)
 # Add Viability Threshold to fc
-#fc.index.astype(np.float32)
 fc = pd.merge(fc, df[['Viability Threshold']], how='left', left_index=True, right_index=True)
+fc.fillna(0, inplace=True)
 
 
 # ## Viability
@@ -193,7 +173,7 @@ fc = pd.merge(fc, df[['Viability Threshold']], how='left', left_index=True, righ
 # 
 # For other candidates, the 70% estimation can be changed by adjusting the `viability_percent` variable.
 
-# In[175]:
+# In[415]:
 
 
 # Set the desired weights here
@@ -203,7 +183,7 @@ flake_rate = 0.85
 viability_percent = 0.7
 
 
-# In[176]:
+# In[416]:
 
 
 # Calculate whether or not EW is viable for each precinct
@@ -211,7 +191,7 @@ df['Expected Warren Turnout'] = df.apply(lambda row: flake_rate * (row['Committe
 df['Warren Viable'] = df.apply(lambda row: row['Viability Threshold'] <= row['Expected Warren Turnout'] and row['Expected Warren Turnout'] != 0, axis=1)
 
 
-# In[177]:
+# In[418]:
 
 
 # Calculate the number of other viable candidates in each precinct
@@ -228,35 +208,53 @@ def get_other_viable (row):
 fc['Other Viable Candidates'] = fc.apply(get_other_viable, axis=1)
 
 # Calculate the total turnout across other viable candidates
-def get_ID_turnout (row):
+def get_turnout (row):
     ID_turnout = 0
+    viable_turnout = 0
     for candidate in candidates:
+        ID_turnout += row[candidate]
         # If the candidate has IDs above the viablity threshold
         if (row[candidate]) >= row['Viability Threshold'] and (row[candidate] != 0):
             # Add the number of IDs to the expected ID turnout
-            ID_turnout += row[candidate]
+            viable_turnout += row[candidate]
         # If the candidate has IDs above the viability percent 
         if (row[candidate] >= viability_percent * row['Viability Threshold']) and (row[candidate] != 0):
             # Add the viability threhold to the expected turnout
-            ID_turnout += row['Viability Threshold']
-    return ID_turnout
+            viable_turnout += row['Viability Threshold']
+    return ID_turnout, viable_turnout
 
-fc['Other Candidates Turnout'] = fc.apply(get_ID_turnout, axis=1)
+# This is the raw turnout based on IDs
+def get_ID_turnout (row):
+    x, y = get_turnout (row)
+    return x
+
+# This is the adjusted turnout rounding up if a candidate has more than the viablity percent
+# This only includes candidates we think will be viable
+def get_viable_turnout (row):
+    x, y = get_turnout (row)
+    return y
+
+fc['Partial ID Turnout'] = fc.apply(get_ID_turnout, axis=1)
+fc['Other Candidates Viable Turnout'] = fc.apply(get_viable_turnout, axis=1)
 
 df = pd.merge(df, fc[['Other Viable Candidates']], how='left', left_index=True, right_index=True)
-df = pd.merge(df, fc[['Other Candidates Turnout']], how='left', left_index=True, right_index=True)
+df = pd.merge(df, fc[['Other Candidates Viable Turnout']], how='left', left_index=True, right_index=True)
+
+# Calculate total ID turnout by adding ID turnout for other candidates to expected warren turnout
+df = pd.merge(df, fc[['Partial ID Turnout']], how='left', left_index=True, right_index=True)
+df['Total ID Turnout'] = df.apply(lambda row: row['Partial ID Turnout'] + row['Expected Warren Turnout'], axis=1)
 df.fillna(0, inplace=True)
 
 
-# In[178]:
+# In[419]:
 
 
-# Calculate expected number of delegates based on exprected warren turnout
+# Calculate expected number of warren delegates based on exprected warren turnout
 
 def expected_dels (row):
     et = row['Expected Turnout']
     ew = row['Expected Warren Turnout']
-    oc = row['Other Candidates Turnout']
+    oc = row['Other Candidates Viable Turnout']
     id_turnout = ew + oc
     num_del = row['Delegates to County Conv']
     
@@ -270,21 +268,21 @@ def expected_dels (row):
     else:
         return math.floor(exp_del)
 
-df['Expected Delegates'] = df.apply(expected_dels, axis=1)    
+df['Expected Warren Delegates'] = df.apply(expected_dels, axis=1)    
 
 
-# In[183]:
+# In[421]:
 
 
 def distance_to_next_delegate (row):
     et = row['Expected Turnout']
     ew = row['Expected Warren Turnout']
-    oc = row['Other Candidates Turnout']
+    oc = row['Other Candidates Viable Turnout']
     num_other = row['Other Viable Candidates']
     id_turnout = ew + oc
     num_del = row['Delegates to County Conv']
     
-    n = row['Expected Delegates'] + 0.5
+    n = row['Expected Warren Delegates'] + 0.5
     
     # Lee County
     if num_del == 0:
@@ -322,19 +320,22 @@ def distance_to_next_delegate (row):
 df['Distance to Next Delegate'] = df.apply(distance_to_next_delegate, axis=1)      
 
 
-# In[186]:
+# In[422]:
 
 
+# Drop columns only used for internal calculations
+df.drop(['Other Candidates Viable Turnout', 'Partial ID Turnout'], inplace=True, axis=1)
+# Sort columns
 df.sort_values(['Distance to Next Delegate', 'State Delegate Equivalence (SDE)'], inplace=True)
 
 
-# In[187]:
+# In[423]:
 
 
 df
 
 
-# In[154]:
+# In[253]:
 
 
 df.to_csv('SDE_model_' + date + '.csv')
