@@ -21,98 +21,7 @@
 # 
 # 
 
-# In[456]:
-
-
-# Set the Turnout Model you want to use
-turnout_model = overall_avg
-# Set the expected statewide turnout if your model depends on it
-expected_statewide_turnout = 300000
-
-
-# ## Viability
-# 
-# To predict viablity for EW we first predict how many caucus goers we expect to turnout for EW and then compare this number against the viability threshold calculated from our expected turnout.
-# 
-# To predict viability for other candidtes we assume if they have at least 70% of the viability threshold in a given precinct then that candidate will be viable.
-# 
-# ---
-# We predict the number of caucus goers for EW by weighting the number of 'Committed Warren' and 'Lean Warren' IDs we have. We than assume a flake rate for the weighted sum. The variables `committed_warren_weight` and `lean_warren_weight` can be set to adjust the weights of this prediction. The variable `flake_rate` can be set to adjust the flake rate (Note, the flake rate is set as the percent of people who do show up).
-# 
-# By default, `committed_warren_weight` is set to `0.9`, `lean_warren_weight` is set to `0.5`, and `flake_rate` is set to 0.85.
-# 
-# For other candidates, the 70% estimation can be changed by adjusting the `viability_percent` variable.
-
-# In[457]:
-
-
-# Set the viablity desired weights here
-committed_warren_weight = 0.9
-lean_warren_weight = 0.6
-flake_rate = 0.85
-viability_percent = 0.7
-
-
-# In[458]:
-
-
-import numpy as np
-import pandas as pd
-import math
-import civis
-import json
-import datetime
-
-lee = [948327, 947318, 948329] 
-
-
-# In[459]:
-
-
-# Get login credentials from secrets file
-secrets = json.load(open('secrets.json'))
-CIVIS_API_KEY = secrets['civis']['api_key']
-
-# Setup API client
-client = civis.APIClient(api_key=CIVIS_API_KEY)
-
-# Import precinct data
-to_drop = ['clinton_16', 'hubbell_18', 'clinton_hubbell_sum', 'reporting_multiplier','percent_of_statewide_vote']
-sql = "SELECT * FROM analytics_ia.precinct_data"
-precinct_data = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
-precinct_data.drop(to_drop, inplace=True, axis=1)
-
-# Import first choice ID data
-sql = "select van_precinct_id, survey_response_name, count(*) from analytics_ia.vansync_responses where mrr_all = 1 and survey_question_name = '1st Choice Caucus' group by 1,2"    
-fc = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
-# Set dtype for columns to float
-cols = fc.columns.drop('survey_response_name')
-fc[cols] = fc[cols].astype(np.float32)
-# Pivot on van_precinct_id
-fc = fc.pivot(index='van_precinct_id', columns='survey_response_name', values='count')
-# Reset dtype for columns to float
-cols = first_choice.columns
-fc[cols] = fc[cols].astype(np.float32)
-
-# Import caucus history data 
-sql = "SELECT van_precinct_id, SUM(case when caucus_attendee_2016 = 1 then 1 else 0 end) count16, SUM(case when caucus_attendee_2008 = 1 then 1 else 0 end) count08 FROM phoenix_caucus_history_ia.person_caucus_attendance ca LEFT JOIN phoenix_ia.person p ON ca.person_id = p.person_id GROUP BY van_precinct_id"
-caucus_history = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
-
-
-# In[460]:
-
-
-# Rename columns
-precinct_data.rename(index=str, columns={"congressional_district": "Congressional District", 
-                                    "precinct_id": "Precinct ID", 
-                                    "county": "County",
-                                    "precinct_code": "Precinct Code",
-                                    "sos_precinct_name": "Sec. State Precinct Name",
-                                    "delegates_to_county_conv": "Delegates to County Conv",
-                                    "state_delegate_equivalence_sde": "State Delegate Equivalence (SDE)"}, inplace=True)
-
-
-# In[461]:
+# In[1]:
 
 
 def exp_16 (row):
@@ -137,7 +46,98 @@ def overall_avg (row):
     return (exp_16(row) + exp_08(row) + exp_percent_16(row) + exp_percent_08(row)) / 4
 
 
-# In[462]:
+# In[2]:
+
+
+# Set the Turnout Model you want to use
+turnout_model = overall_avg
+# Set the expected statewide turnout if your model depends on it
+expected_statewide_turnout = 300000
+
+
+# ## Viability
+# 
+# To predict viablity for EW we first predict how many caucus goers we expect to turnout for EW and then compare this number against the viability threshold calculated from our expected turnout.
+# 
+# To predict viability for other candidtes we assume if they have at least 70% of the viability threshold in a given precinct then that candidate will be viable.
+# 
+# ---
+# We predict the number of caucus goers for EW by weighting the number of 'Committed Warren' and 'Lean Warren' IDs we have. We than assume a flake rate for the weighted sum. The variables `committed_warren_weight` and `lean_warren_weight` can be set to adjust the weights of this prediction. The variable `flake_rate` can be set to adjust the flake rate (Note, the flake rate is set as the percent of people who do show up).
+# 
+# By default, `committed_warren_weight` is set to `0.9`, `lean_warren_weight` is set to `0.5`, and `flake_rate` is set to 0.85.
+# 
+# For other candidates, the 70% estimation can be changed by adjusting the `viability_percent` variable.
+
+# In[3]:
+
+
+# Set the viablity desired weights here
+committed_warren_weight = 0.9
+lean_warren_weight = 0.6
+flake_rate = 0.85
+viability_percent = 0.7
+
+
+# In[4]:
+
+
+import numpy as np
+import pandas as pd
+import math
+import civis
+import json
+import datetime
+
+lee = [948327, 947318, 948329] 
+
+
+# In[6]:
+
+
+# Get login credentials from secrets file
+secrets = json.load(open('secrets.json'))
+CIVIS_API_KEY = secrets['civis']['api_key']
+
+# Setup API client
+client = civis.APIClient(api_key=CIVIS_API_KEY)
+
+# Import precinct data
+to_drop = ['clinton_16', 'hubbell_18', 'clinton_hubbell_sum', 'reporting_multiplier','percent_of_statewide_vote']
+sql = "SELECT * FROM analytics_ia.precinct_data"
+precinct_data = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
+precinct_data.drop(to_drop, inplace=True, axis=1)
+
+# Import first choice ID data
+sql = "select van_precinct_id, survey_response_name, count(*) from analytics_ia.vansync_responses where mrr_all = 1 and survey_question_name = '1st Choice Caucus' group by 1,2"    
+fc = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
+# Set dtype for columns to float
+cols = fc.columns.drop('survey_response_name')
+fc[cols] = fc[cols].astype(np.float32)
+# Pivot on van_precinct_id
+fc = fc.pivot(index='van_precinct_id', columns='survey_response_name', values='count')
+# Reset dtype for columns to float
+cols = fc.columns
+fc[cols] = fc[cols].astype(np.float32)
+
+# Import caucus history data 
+sql = "SELECT van_precinct_id, SUM(case when caucus_attendee_2016 = 1 then 1 else 0 end) count16, SUM(case when caucus_attendee_2008 = 1 then 1 else 0 end) count08 FROM phoenix_caucus_history_ia.person_caucus_attendance ca LEFT JOIN phoenix_ia.person p ON ca.person_id = p.person_id GROUP BY van_precinct_id"
+caucus_history = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
+
+
+# In[7]:
+
+
+# Rename columns
+precinct_data.rename(index=str, columns={"congressional_district": "Congressional District", 
+                                    "precinct_id": "Precinct ID", 
+                                    "county": "County",
+                                    "precinct_code": "Precinct Code",
+                                    "sos_precinct_name": "Sec. State Precinct Name",
+                                    "delegates_to_county_conv": "Delegates to County Conv",
+                                    "state_delegate_equivalence_sde": "State Delegate Equivalence (SDE)"}, inplace=True)
+
+
+# In[8]:
 
 
 # Add historical caucus data to df
@@ -147,7 +147,7 @@ statewide_turnout_08 = caucus_history['count08'].sum()
 df.set_index('Precinct ID', inplace=True)
 
 
-# In[463]:
+# In[9]:
 
 
 # Add turnout to df
@@ -157,7 +157,7 @@ columns = ['van_precinct_id', 'count16', 'count08']
 df.drop(columns, inplace=True, axis=1)
 
 
-# In[464]:
+# In[10]:
 
 
 def viability_threshold(num_del):
@@ -173,7 +173,7 @@ def viability_threshold(num_del):
         return 0.15
 
 
-# In[465]:
+# In[11]:
 
 
 # Calculate SDE per person based on turnout model
@@ -182,7 +182,7 @@ df['SDE per Person'] = df.apply(lambda row : row['State Delegate Equivalence (SD
 df['Viability Threshold'] = df.apply(lambda row : math.ceil(row['Expected Turnout'] * viability_threshold(row['Delegates to County Conv'])), axis=1).astype(np.float32)
 
 
-# In[466]:
+# In[12]:
 
 
 # Add Committed Warren and Lean Warren from fc to new merged df
@@ -193,7 +193,7 @@ fc = pd.merge(fc, df[['Viability Threshold']], how='left', left_index=True, righ
 fc.fillna(0, inplace=True)
 
 
-# In[467]:
+# In[13]:
 
 
 # Calculate whether or not EW is viable for each precinct
@@ -201,7 +201,7 @@ df['Expected Warren Turnout'] = df.apply(lambda row: flake_rate * (row['Committe
 df['Warren Viable'] = df.apply(lambda row: row['Viability Threshold'] <= row['Expected Warren Turnout'] and row['Expected Warren Turnout'] != 0, axis=1)
 
 
-# In[468]:
+# In[14]:
 
 
 # Calculate the number of other viable candidates in each precinct
@@ -256,7 +256,7 @@ df['Total ID Turnout'] = df.apply(lambda row: row['Partial ID Turnout'] + row['E
 df.fillna(0, inplace=True)
 
 
-# In[469]:
+# In[15]:
 
 
 # Calculate expected number of warren delegates based on exprected warren turnout
@@ -281,7 +281,7 @@ def expected_dels (row):
 df['Expected Warren Delegates'] = df.apply(expected_dels, axis=1)    
 
 
-# In[470]:
+# In[16]:
 
 
 def distance_to_next_delegate (row):
@@ -330,7 +330,7 @@ def distance_to_next_delegate (row):
 df['Distance to Next Delegate'] = df.apply(distance_to_next_delegate, axis=1)      
 
 
-# In[471]:
+# In[17]:
 
 
 # Drop columns only used for internal calculations
@@ -339,14 +339,22 @@ df.drop(['Other Candidates Viable Turnout', 'Partial ID Turnout'], inplace=True,
 df.sort_values(['Distance to Next Delegate', 'State Delegate Equivalence (SDE)'], inplace=True)
 
 
-# In[472]:
+# In[38]:
 
 
 df
 
 
-# In[253]:
+# In[39]:
 
 
-df.to_csv('SDE_model_' + date + '.csv')
+county_totals = df.groupby(['County']).sum()
+to_drop = ['Congressional District', 'State Delegate Equivalence (SDE)', 'SDE per Person', 'Viability Threshold', 'Warren Viable', 'Other Viable Candidates', 'Distance to Next Delegate']
+county_totals.drop(to_drop, inplace=True, axis=1)
+
+
+# In[40]:
+
+
+county_totals
 
