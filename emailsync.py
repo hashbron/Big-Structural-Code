@@ -295,6 +295,7 @@ def main():
 	# Setup Selenium driver
 	options = webdriver.ChromeOptions()
 	options.add_argument('user-data-dir=Profile')
+	options.add_argument("--start-maximized");
 	# options.add_argument("--headless")
 
 	my_driver = webdriver.Chrome(options=options)
