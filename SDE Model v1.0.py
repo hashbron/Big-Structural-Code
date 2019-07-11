@@ -240,6 +240,13 @@ df.drop(['Other Candidates Viable Turnout', 'Partial ID Turnout'], inplace=True,
 # Sort columns
 df.sort_values(['Distance to Next Delegate', 'State Delegate Equivalence (SDE)'], inplace=True)
 
+# Create county level totals
+county_totals = df.groupby(['County']).sum()
+to_drop = ['Congressional District', 'State Delegate Equivalence (SDE)', 'SDE per Person', 'Viability Threshold', 'Warren Viable', 'Other Viable Candidates', 'Distance to Next Delegate']
+county_totals.drop(to_drop, inplace=True, axis=1)
+
 # Export to civis
 fut = civis.io.dataframe_to_civis(df.reset_index(),'Warren for MA','analytics_ia.SDE_Model',existing_table_rows='drop')
+fut.result()
+fut = civis.io.dataframe_to_civis(county_totals.reset_index(),'Warren for MA','analytics_ia.SDE_Model_County',existing_table_rows='drop')
 fut.result()
