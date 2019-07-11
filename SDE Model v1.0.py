@@ -240,6 +240,6 @@ df.drop(['Other Candidates Viable Turnout', 'Partial ID Turnout'], inplace=True,
 # Sort columns
 df.sort_values(['Distance to Next Delegate', 'State Delegate Equivalence (SDE)'], inplace=True)
 
-#df
-#df.to_csv('SDE_model_' + date + '.csv')
-
+# Export to civis
+fut = civis.io.dataframe_to_civis(df.reset_index(),'Warren for MA','analytics_ia.SDE_Model',existing_table_rows='drop')
+fut.result()
