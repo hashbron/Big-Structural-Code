@@ -6,6 +6,8 @@ workflow:
       action: civis.run_job
       input:
         job_id: 29594102
+      on-success:
+        - task_2
     task_2:
       action: civis.run_job
       input:
