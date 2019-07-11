@@ -1,0 +1,12 @@
+version: '2.0'
+workflow:
+  type: direct
+  tasks:
+    task_1:
+      action: civis.run_job
+      input:
+        job_id: 29594102
+    task_2:
+      action: civis.run_job
+      input:
+        job_id: 29611178
