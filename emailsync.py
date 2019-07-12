@@ -30,7 +30,8 @@ def login(driver, action_id_email, action_id_pw, pin, committee):
 
 	### Enter PIN ###
 	# Store the xpaths of each number in the pin pad (first element is 0 to create 1-indexing)
-	xpaths = [0, "//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[1]/div[1]/div/span[2]",
+	xpaths = ["//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[4]/div[2]/div/span[2]", 
+	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[1]/div[1]/div/span[2]",
 	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[1]/div[2]/div/span[2]",
 	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[1]/div[3]/div/span[2]",
 	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[2]/div[1]/div/span[2]",
@@ -38,13 +39,13 @@ def login(driver, action_id_email, action_id_pw, pin, committee):
 	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[2]/div[3]/div/span[2]",
 	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[3]/div[1]/div/span[2]",
 	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[3]/div[2]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[3]/div[3]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[4]/div[2]/div/span[2]"]
+	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[3]/div[3]/div/span[2]"]
 
 	# Construct the letters corresponding to PIN
 	letter_pin = ""
 	for num in pin:
 		letter_pin = letter_pin + str(driver.find_element_by_xpath(xpaths[int(num)]).text)
+		print(letter_pin)
 
 	# Enter the letters corresponding to PIN
 	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_VANDetailsItemPIN_VANInputItemDetailsItemPINCode_PINCode').send_keys(letter_pin)
