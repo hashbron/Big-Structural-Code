@@ -215,7 +215,7 @@ def distance_to_next_delegate (row):
     # One delegate precinct
     elif num_del == 1:
         # Distance to 50% + 1 of expected turnout or id_turnout (whichever is higher)
-        return math.ceil(max(et, id_turnout) * (0.5)) + 1 - ew
+        return math.ceil((max(et, id_turnout) * (0.5)) + 1 - ew)
     
     # More than one delegate precicnt
     else:
