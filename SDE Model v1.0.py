@@ -1,4 +1,5 @@
 # Define functions for expected turnout
+
 def exp_16 (row):
     return row['count16']
 
@@ -20,16 +21,19 @@ def exp_percent_avg (row):
 def overall_avg (row):
     return (exp_16(row) + exp_08(row) + exp_percent_16(row) + exp_percent_08(row)) / 4
 
-# Set the Turnout Model you want to use
+### SET THE TURNOUT MODEL YOU WANT TO USE ###
 turnout_model = overall_avg
-# Set the expected statewide turnout if your model depends on it
+### SET THE EXPECTED STATEWIDE TURNOUT IF YOUR MODEL DEPENDS ON IT ###
 expected_statewide_turnout = 300000
 
-# Set the viablity desired weights here
+### SET THE DESIRED VIABILITY WEIGHTS HERE ###
 committed_warren_weight = 0.9
 lean_warren_weight = 0.6
 flake_rate = 0.85
+
 viability_percent = 0.7
+
+single_delegate_viablity_percent = 0.5
 
 import numpy as np
 import pandas as pd
@@ -40,12 +44,8 @@ import datetime
 
 lee = [948327, 947318, 948329] 
 
-# Get login credentials from secrets file
-#secrets = json.load(open('secrets.json'))
-#CIVIS_API_KEY = secrets['civis']['api_key']
-
 # Setup API client
-client = civis.APIClient()#api_key=CIVIS_API_KEY)
+client = civis.APIClient()
 
 # Import precinct data
 to_drop = ['clinton_16', 'hubbell_18', 'clinton_hubbell_sum', 'reporting_multiplier','percent_of_statewide_vote']
@@ -69,6 +69,11 @@ fc[cols] = fc[cols].astype(np.float32)
 sql = "SELECT van_precinct_id, SUM(case when caucus_attendee_2016 = 1 then 1 else 0 end) count16, SUM(case when caucus_attendee_2008 = 1 then 1 else 0 end) count08 FROM phoenix_caucus_history_ia.person_caucus_attendance ca LEFT JOIN phoenix_ia.person p ON ca.person_id = p.person_id GROUP BY van_precinct_id"
 caucus_history = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
 
+# Import Organizer Turfs
+sql = "select van_precinct_id, fo_name from vansync_ia.turf"
+turfs = civis.io.read_civis_sql(sql, "Warren for MA", use_pandas=True, client=client)
+turfs.set_index('van_precinct_id', inplace=True)
+
 # Rename columns
 precinct_data.rename(index=str, columns={"congressional_district": "Congressional District", 
                                     "precinct_id": "Precinct ID", 
@@ -78,19 +83,21 @@ precinct_data.rename(index=str, columns={"congressional_district": "Congressiona
                                     "delegates_to_county_conv": "Delegates to County Conv",
                                     "state_delegate_equivalence_sde": "State Delegate Equivalence (SDE)"}, inplace=True)
 
-# Add historical caucus data to df
+# Create new df of historical caucus data and precicnt data
 df = pd.merge(precinct_data, caucus_history, left_on='Precinct ID', right_on='van_precinct_id')
-statewide_turnout_16 = caucus_history['count16'].sum()
-statewide_turnout_08 = caucus_history['count08'].sum()
+# Set the index of the new df
 df.set_index('Precinct ID', inplace=True)
 
-# Add turnout to df
+# Add expected turnout to df
+# First, calculate statewide turnouts for certain models
+statewide_turnout_16 = caucus_history['count16'].sum()
+statewide_turnout_08 = caucus_history['count08'].sum()
+# Then apply selected model to each row
 df['Expected Turnout'] = df.apply(turnout_model, axis=1)
-# Remove historical caucus data after calculations
+# Remove historical caucus data after turnout calculations are complete
 columns = ['van_precinct_id', 'count16', 'count08']
 df.drop(columns, inplace=True, axis=1)
 
-# Calculate the viability threshold from the number of delegates
 def viability_threshold(num_del):
     if num_del == 0:
         return 0.0
@@ -171,6 +178,7 @@ df['Total ID Turnout'] = df.apply(lambda row: row['Partial ID Turnout'] + row['E
 df.fillna(0, inplace=True)
 
 # Calculate expected number of warren delegates based on exprected warren turnout
+
 def expected_dels (row):
     et = row['Expected Turnout']
     ew = row['Expected Warren Turnout']
@@ -237,13 +245,26 @@ df['Distance to Next Delegate'] = df.apply(distance_to_next_delegate, axis=1)
 
 # Drop columns only used for internal calculations
 df.drop(['Other Candidates Viable Turnout', 'Partial ID Turnout'], inplace=True, axis=1)
+# Add organizer turfs
+df = pd.merge(df, turfs[['fo_name']], how='left', left_index=True, right_index=True)
 # Sort columns
-df.sort_values(['Distance to Next Delegate', 'State Delegate Equivalence (SDE)'], inplace=True)
+df.sort_values(['fo_name', 'Distance to Next Delegate', 'State Delegate Equivalence (SDE)'], inplace=True)
 
-# Create county level totals
+# Calculate county level sums
 county_totals = df.groupby(['County']).sum()
-to_drop = ['Congressional District', 'State Delegate Equivalence (SDE)', 'SDE per Person', 'Viability Threshold', 'Warren Viable', 'Other Viable Candidates', 'Distance to Next Delegate']
+# Drop unnessecary columns
+to_drop = ['Congressional District', 'SDE per Person','Warren Viable', 'Other Viable Candidates']
 county_totals.drop(to_drop, inplace=True, axis=1)
+# Find county level counts
+county_totals['Total Precincts']  = df.groupby('County').size()
+county_totals['Viable Precincts']  = df.groupby('County')['Warren Viable'].apply(lambda x: x[x == False].count())
+# Find county level means
+county_means = df.groupby(['County']).mean()
+# Rename means
+county_means.rename(index=str, columns={"Viability Threshold": "Mean Viability Threshold", 
+                                        "Distance to Next Delegate": "Mean Distance to Next Delegate",}, inplace=True)
+# Merge means to totals
+county_totals = pd.merge(county_totals, county_means[["Mean Viability Threshold", "Mean Distance to Next Delegate"]], how='left', left_index=True, right_index=True)
 
 # Export to civis
 fut = civis.io.dataframe_to_civis(df.reset_index(),'Warren for MA','analytics_ia.SDE_Model',existing_table_rows='drop')
