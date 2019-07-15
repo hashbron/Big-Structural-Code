@@ -198,6 +198,28 @@ def expected_dels (row):
 
 df['Expected Warren Delegates'] = df.apply(expected_dels, axis=1)    
 
+def distance_to_viability (row):
+    et = row['Expected Turnout']
+    ew = row['Expected Warren Turnout']
+    oc = row['Other Candidates Viable Turnout']
+    num_other = row['Other Viable Candidates']
+    id_turnout = ew + oc
+    num_del = row['Delegates to County Conv']
+    
+    n = row['Expected Warren Delegates'] + 0.5
+    
+    # Lee County
+    if num_del == 0:
+        return None
+    # One delegate precinct
+    if num_del == 1:
+        return None
+    # More than one delegate precicnt
+    else:
+        return math.ceil(row['Viability Threshold'] - ew)
+
+df['Distance to Viability'] = df.apply(distance_to_viability, axis=1)      
+
 def distance_to_next_delegate (row):
     et = row['Expected Turnout']
     ew = row['Expected Warren Turnout']
