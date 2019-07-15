@@ -257,7 +257,7 @@ to_drop = ['Congressional District', 'SDE per Person','Warren Viable', 'Other Vi
 county_totals.drop(to_drop, inplace=True, axis=1)
 # Find county level counts
 county_totals['Total Precincts']  = df.groupby('County').size()
-county_totals['Viable Precincts']  = df.groupby('County')['Warren Viable'].apply(lambda x: x[x == False].count())
+county_totals['Viable Precincts']  = df.groupby('County')['Warren Viable'].apply(lambda x: x[x == True].count())
 # Find county level means
 county_means = df.groupby(['County']).mean()
 # Rename means
