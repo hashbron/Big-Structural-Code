@@ -58,7 +58,7 @@ def login(driver, action_id_email, action_id_pw, pin, committee, twofa):
 
 	### Enter PIN ###
 	# Store the xpaths of each number in the pin pad (first element is 0 to create 1-indexing)
-	xpaths = ["//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[4]/div[2]/div/span[2]", 
+	xpaths = ["//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[4]/div[2]/div/span[2]",
 	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[1]/div[1]/div/span[2]",
 	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[1]/div[2]/div/span[2]",
 	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[1]/div[3]/div/span[2]",
@@ -249,7 +249,7 @@ def custom_export_add_field(driver, field):
 #		  filepath - is a string containing the complete filepath to the desired file to be uploaded
 # @ends   on the file upload page that allows you to define a mapping between your file and VAN
 
-def upload(driver, filepath):
+def upload(driver, filepath, waittime=60):
 	# Go to upload select data type page
 	driver.get('https://www.votebuilder.com/UploadDataSelectType.aspx')
 	time.sleep(2)
@@ -264,7 +264,7 @@ def upload(driver, filepath):
 	time.sleep(2)
 	# Click upload
 	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonSubmitDefault').click()
-	time.sleep(60)
+	time.sleep(waittime)
 
 	# A view may appear that tells you certain VAN IDs in excel do not match those in the database
 	# If this appears, we click the next button. Otherwise print that all IDs match
