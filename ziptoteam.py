@@ -9,103 +9,13 @@ from selenium.webdriver.common.action_chains import ActionChains
 import json
 import os
 import civis
+import vanpy
 
-def login(driver, action_id_email, action_id_pw, pin, committee):
-	driver.get('https://www.votebuilder.com/SelectCommittee.aspx')
-	time.sleep(3)
-	driver.find_element_by_id('OpenIDSelectorLinkLink4').click()
-	time.sleep(2)
-	driver.find_element_by_id('username').send_keys(action_id_email)
-	time.sleep(3)
-	driver.find_element_by_id('password').send_keys(action_id_pw)
-	time.sleep(3)
-	driver.find_element_by_xpath("//section[@id='body-content']/div[2]/div/div/div/form/fieldset/button").click()
-
-	# Pause for 2-factor authentication IF NEEDED - assumes user also hits enter at end to get to Select Committee page
-	time.sleep(5)
-
-	select_committee(driver, committee)
-
-	### Enter PIN ###
-	# Store the xpaths of each number in the pin pad (first element is 0 to create 1-indexing)
-	xpaths = [0, "//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[1]/div[1]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[1]/div[2]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[1]/div[3]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[2]/div[1]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[2]/div[2]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[2]/div[3]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[3]/div[1]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[3]/div[2]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[3]/div[3]/div/span[2]",
-	"//*[@id='ctl00_ContentPlaceHolderVANPage_PanelWideColumn']/div/div[4]/div[2]/div/span[2]"]
-
-	# Construct the letters corresponding to PIN
-	letter_pin = ""
-	for num in pin:
-		letter_pin = letter_pin + str(driver.find_element_by_xpath(xpaths[int(num)]).text)
-
-	# Enter the letters corresponding to PIN
-	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_VANDetailsItemPIN_VANInputItemDetailsItemPINCode_PINCode').send_keys(letter_pin)
-	time.sleep(2)
-
-	# Click the submit button
-	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonNarrowSubmit').click()
-	time.sleep(2)
-
-	# Make sure we are in My Campaign
-	driver.find_element_by_link_text('My Campaign').click()
-	time.sleep(2)
-
-def select_committee(driver, committee):
-	# Open committee selector
-	driver.find_element_by_id("s2id_ctl01_ContentPlaceHolderVANPage_DropDownListCommittees").click()
-	time.sleep(2)
-	# Enter committee name
-	ActionChains(driver).send_keys(committee).perform()
-	ActionChains(driver).send_keys('\ue007').perform()
-	time.sleep(2)
-	# Click the next button
-	driver.find_element_by_css_selector("#ctl01_ContentPlaceHolderVANPage_ButtonContinue").click()
-	time.sleep(5)
-
-def logout(driver):
-	# Make sure we are in the My Campaign homepage
-	driver.find_element_by_link_text('My Campaign').click()
-	time.sleep(2)
-	# Click the account dropdown
-	driver.find_element_by_css_selector('li.dropdown:nth-child(3)').click()
-	time.sleep(2)
-	# Click logout
-	driver.find_element_by_css_selector('.action-bar-dropdown-body > li:nth-child(11) > a:nth-child(1)').click()
-	time.sleep(2)
-
-def upload(driver, filepath):
-	# Go to upload select data type page
-	driver.get('https://www.votebuilder.com/UploadDataSelectType.aspx')
-	time.sleep(2)
-	# Click next
-	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonUploadSubmit').click()
-	time.sleep(2)
-	# Submit file name
-	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_InputFileDefault').send_keys(filepath)
-	time.sleep(5)
-	# Scroll down to the upload button
-	driver.execute_script("return arguments[0].scrollIntoView();", driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonSubmitDefault'))
-	time.sleep(2)
-	# Click upload
-	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonSubmitDefault').click()
-	time.sleep(15)
-
-	# A view may appear that tells you certain VAN IDs in excel do not match those in the database
-	# If this appears, we click the next button. Otherwise print that all IDs match
-	try:
-		driver.find_element_by_name('ctl00$ContentPlaceHolderVANPage$ctl05').click()
-	except:
-		print('All VAN IDs match.')
-	time.sleep(3)
-
+def upload_zip_to_team(driver, filepath):
+	# Upload file
+	vanpy.upload(driver, filepath, waittime=20)
 	# Select Warren Activity Region from the Apply New Mappings dropdown
-	Select(driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ctl02_AddULFieldID')).select_by_value("270")
+	Select(driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ctl02_AddULFieldID')).select_by_value("575")
 	time.sleep(5)
 	driver.switch_to_frame(driver.find_element_by_name("RadWindow1"))
 	# Toggle the 'Choose Column from Data File' radio button
@@ -172,6 +82,30 @@ def upload(driver, filepath):
 	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_FinishUploadModal__submitButton').click()
 	time.sleep(5)
 
+def upload_OOS_vols(driver, filepath):
+	# Upload file
+	vanpy.upload(driver, filepath, waittime=20)
+	# Select Warren Activity Region from the Apply New Mappings dropdown
+	Select(driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ctl02_AddULFieldID')).select_by_value("1")
+	time.sleep(5)
+	driver.switch_to_frame(driver.find_element_by_name("RadWindow1"))
+	# Select the activist code OOS
+	Select(driver.find_element_by_id('ctl01_ContentPlaceHolderVANPage_myLabelCont0_ActivistCodeID_ACValue_ddl_ACValue')).select_by_value("4538205")
+	time.sleep(5)
+	# Click next
+	driver.find_element_by_id('ctl01_ContentPlaceHolderVANPage_Next0').click()
+	time.sleep(5)
+
+	driver.find_element_by_id('ctl01_ContentPlaceHolderVANPage_Next3').click()
+	time.sleep(5)
+
+	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_ButtonFinishUpload').click()
+	time.sleep(5)
+
+	driver.find_element_by_id('ctl00_ContentPlaceHolderVANPage_FinishUploadModal__submitButton').click()
+	time.sleep(5)
+
+
 def download_zip_to_team(CIVIS_API_KEY, date):
 	# Get the SQL query from a txt file
 	script = ""
@@ -188,7 +122,24 @@ def download_zip_to_team(CIVIS_API_KEY, date):
 	filepath = str(os.getcwd()) + "/" + str(filename) # Get the complete filepath to the CSV (stored in current directory by default)
 	return filepath
 
+def download_OOS_vols(CIVIS_API_KEY, date):
+	# Get the SQL query from a txt file
+	script = ""
+	with open('OOS_query.txt', 'r') as myfile:
+  		script = myfile.read()
+
+  	# Setup the civis client
+	client = civis.APIClient(api_key=CIVIS_API_KEY)
+	# Run the civis query
+	fut = civis.io.civis_to_csv(filename="OOS_vols_" + str(date) + ".csv", sql=script, database="Warren for MA", job_name="OOS_vols_" + str(date), client=client)
+	# Wait for query results
+	results = fut.result()
+	filename = results['output'][0]['output_name'] # Get CSV filename from the results
+	filepath = str(os.getcwd()) + "/" + str(filename) # Get the complete filepath to the CSV (stored in current directory by default)
+	return filepath
+
 def main():
+
 	# Get login credentials from secrets file
 	try:
 		secrets = json.load(open('secrets.json'))
@@ -205,6 +156,12 @@ def main():
 
 	committee_name = "Elizabeth Warren for President 2020"
 
+	options = webdriver.ChromeOptions()
+	options.add_argument('user-data-dir=Profile')
+	options.add_argument("--start-maximized")
+	# options.add_argument("--headless")
+	my_driver = webdriver.Chrome(chrome_options=options)
+
 	# Get todays date
 	now = datetime.datetime.now()
 	month, day = str(now.month), str(now.day) 
@@ -215,23 +172,17 @@ def main():
 	date = month + day + str(now.year)
 
 	# Run civis query and get the filepath to the CSV
-	print("Running civis query.")
-	path = download_zip_to_team(CIVIS_API_KEY, date)
-
-	# Setup Selenium driver
-	options = webdriver.ChromeOptions()
-	options.add_argument('user-data-dir=Profile')
-	# options.add_argument("--headless")
-
-	my_driver = webdriver.Chrome(options=options)
+	print("Running civis queries.")
+	path_zip = download_zip_to_team(CIVIS_API_KEY, date)
+	path_oos = download_OOS_vols(CIVIS_API_KEY, date)
 
 	print("Logging in to VAN.")
-	login(my_driver, action_id_email, action_id_pw, pin, committee_name)
-	print("Uploading csv.")
-	upload(my_driver, path)
+	vanpy.login(my_driver, action_id_email, action_id_pw, pin, committee_name, False)
+	print("Uploading csvs.")
+	upload_zip_to_team(my_driver, path_zip)
+	upload_OOS_vols(my_driver, path_oos)
 	print("Logging out.")
-	logout(my_driver)
-	my_driver.close()
+	vanpy.logout(my_driver)
 
 main()
 

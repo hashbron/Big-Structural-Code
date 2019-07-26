@@ -247,6 +247,8 @@ def custom_export_add_field(driver, field):
 # This function loads a file using bulk upload by VANID to be uploaded into VAN. It waits 60 seconds for the file to upload
 # @params driver - is the Selenium webdriver
 #		  filepath - is a string containing the complete filepath to the desired file to be uploaded
+#		  waittime - is an int of the number of seconds the program should wait for the file to upload
+#			     	 this value is set to 60 if left blank
 # @ends   on the file upload page that allows you to define a mapping between your file and VAN
 
 def upload(driver, filepath, waittime=60):

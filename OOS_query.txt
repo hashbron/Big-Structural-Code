@@ -1,0 +1,9 @@
+SELECT count(distinct ad.myc_van_id)
+FROM phoenix_demswarren20_vansync.contacts_addresses_myc ad
+LEFT JOIN(
+  SELECT DISTINCT ac.myc_van_id 
+  FROM phoenix_demswarren20_vansync.contacts_activist_codes_myc ac
+  WHERE activist_code_id != 4538205) ac
+ON ad.myc_van_id = ac.myc_van_id
+WHERE ad.state_code = 'IA' 
+AND (state != 'IA')
